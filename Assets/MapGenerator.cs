@@ -6,8 +6,8 @@ public class MapGenerator : MonoBehaviour
 {
 
 	public int width;
-	public string seed;
-	public bool useRandomSeed;
+	private string seed;
+	private bool useRandomSeed = true;
 
 	[Range(0,100)]
 	public int randomCaveSeedPercent = 50;
@@ -22,32 +22,16 @@ public class MapGenerator : MonoBehaviour
 	public float skyDepth = 20.0f;
 	public int height;
 
-	//class MapCol
-	//{
-	//	public int Topography;
-	//	public int[] Column;
-
-	//	MapCol()
-	//	{
-	//		ClearCol();
-	//	}
-	//	
-	//	void ClearCol()
-	//	{
-	//		for(int y = 0; y < Topography; y++)
-	//		{
-	//			Column[y] = 0;
-	//		}
-	//	}
-	//}
-
 	public AnimationCurve contourCurve = AnimationCurve.Linear (0f, 0f, 1f, 1f);
 	private float GroundTop;
 	public long heightSum;
+
+
 	[Range(0, 8)]
 	public int BirthLimit = 4;		//if the number of walls around the selected blank point is high enough then fill it in
 	[Range(0, 8)]
-	public int DeathLimit = 4;		//if the number of walls around the selected non-blank point is not too high then kill it
+	public int DeathLimit = 5;		//if the number of walls around the selected non-blank point is not too high then kill it
+
 
 	int[,] map;
 	int[,] newMap;
@@ -77,12 +61,11 @@ public class MapGenerator : MonoBehaviour
 		ClearMap ();
 		//RandomFillMap();
 		GenerateHills ();
-		GenerateCaves ();
+		SeedCaves ();
 
 		for (int i = 0; i < SmoothingIterations; i ++) 
 		{
 			SmoothMap();
-			//RandomSmooth();
 		}
 	}
 
@@ -144,7 +127,7 @@ public class MapGenerator : MonoBehaviour
 		}
 	}
 
-	void GenerateCaves()
+	void SeedCaves()	//generate a number of 'holes' in the ground where caves could form later
 	{
 		if (useRandomSeed) 
 		{
@@ -216,41 +199,6 @@ public class MapGenerator : MonoBehaviour
 		SwapMaps ();
 	}
 
-	void RandomSmooth()
-	{
-		if (useRandomSeed) 
-		{
-			seed = Time.time.ToString();
-		}
-		System.Random pseudoRandom = new System.Random(seed.GetHashCode());
-		for (long i=0; i<heightSum; i++) 
-		{
-			int x = pseudoRandom.Next(1, width - 1);
-			//int y = pseudoRandom.Next(1, map[x].Topography - 2);
-			int y = pseudoRandom.Next(1, Topography[x] - 2);
-			int neighbourWallTiles = GetSurroundingWallCount(x,y);
-
-			//if (map[x].Column[y] != 0) //this location is a wall
-			if (map[x,y] != 0) //this location IS a wall
-			{
-				if(neighbourWallTiles < DeathLimit) // Kill a cell
-				{
-					//map[x].Column[y] = 0;
-					map[x,y] = 0;
-				}
-			}
-			else //this block IS NOT a wall
-			{
-				if (neighbourWallTiles > BirthLimit) // Create a cell
-				{
-					//map[x].Column[y] = 1;
-					map[x,y] = 1;
-				}
-			}
-		}
-
-	}
-
 	int GetSurroundingWallCount(int gridX, int gridY) 
 	{
 		int wallCount = 0; //maximum possible  = 8
@@ -274,6 +222,34 @@ public class MapGenerator : MonoBehaviour
 		}
 
 		return wallCount;
+	}
+
+
+	string GetCellValue(int gridX, int gridY)
+	{
+		string CellValue = "0";
+		if (gridX > 1 && gridX < width - 2) 
+		{
+			if (gridY > 1 && gridY < Topography[gridX] - 5) //this logic might seem weird but we cannot check Topography unless we know X is within bounds first
+			{
+				{
+					if (map [gridX, gridY] != 0) //it's a wall of some kind
+					{ 
+						CellValue = "1";
+					}
+				} 
+			}
+			else
+			{
+				CellValue = "1";  // if we are close to the sides, bottom or the surface then return a wall
+			}
+			//doesn't matter what X is if we are above the ground surface
+		}
+		else 
+		{
+			CellValue = "1"; // if we are close to the sides, bottom or the surface then return a wall
+		}
+		return CellValue;
 	}
 
 
