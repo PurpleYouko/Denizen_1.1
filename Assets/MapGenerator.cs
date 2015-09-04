@@ -32,10 +32,18 @@ public class MapGenerator : MonoBehaviour
 	[Range(0, 8)]
 	public int DeathLimit = 5;		//if the number of walls around the selected non-blank point is not too high then kill it
 
+	const int GROUND_SURFACE_BUFFER = 5;
+	const int CAVE = 0;
+	const int WALL = 1;				// might need to be expanded ot to allow for different wall types later
+
+	// ToDo
+	// Add a class MapCol so that each x in Map will be a MapCol object
+	// Code has been partially added to some parts of the code base and commented out where already applied
+
 
 	int[,] map;
 	int[,] newMap;
-	//MapCol[] map;
+	//MapCol[] map;		//Possible future code style.
 	int[] Topography;
 
 	void Start() 
@@ -59,7 +67,6 @@ public class MapGenerator : MonoBehaviour
 		Topography = new int[width];
 		heightSum = 0;
 		ClearMap ();
-		//RandomFillMap();
 		GenerateHills ();
 		SeedCaves ();
 
@@ -93,8 +100,8 @@ public class MapGenerator : MonoBehaviour
 			{
 				if(y <= GroundTop)
 				{
-					//map[x].Column[y] = 1;
-					map[x,y] = 1;
+					//map[x].Column[y] = WALL;
+					map[x,y] = WALL;
 				}
 				else
 				{
@@ -110,8 +117,8 @@ public class MapGenerator : MonoBehaviour
 		{
 			for (int y = 0; y < height; y ++) 
 			{
-				map[x,y] = 0;
-				//map[x].Column[y] = 0;
+				map[x,y] = CAVE;
+				//map[x].Column[y] = CAVE;
 			}
 		}
 	}
@@ -136,17 +143,17 @@ public class MapGenerator : MonoBehaviour
 		System.Random pseudoRandom = new System.Random(seed.GetHashCode());
 		for (int x = 1; x < width-1; x ++)  //Don't seed the edges
 		{
-			//for (int y = 0; y < map[x].Topography-1; y ++) //stops 1 block short of ground surface
-			for (int y = 3; y < Topography[x]-5; y ++) //stops 5 block short of ground surface
+			//for (int y = 0; y < map[x].Topography - GroundBuffer; y ++) //stops 1 block short of ground surface
+			for (int y = 3; y < Topography[x] - GROUND_SURFACE_BUFFER; y ++) //stops 5 block short of ground surface
 			{
-				//if(map[x].Column[y] != 0)
-				if(map[x,y] != 0)
+				//if(map[x].Column[y] != CAVE)
+				if(map[x,y] != CAVE)
 				{
 					//should we seed a cave here?
 					if(pseudoRandom.Next(0,100) < randomCaveSeedPercent)
 					{
-						//map[x].Column[y] = 0;
-						map[x,y] = 0;
+						//map[x].Column[y] = CAVE;
+						map[x,y] = CAVE;
 					}
 				}
 			}
@@ -162,30 +169,30 @@ public class MapGenerator : MonoBehaviour
 			for (int y = 0; y < height; y ++) 
 			{
 				int neighbourWallTiles = GetSurroundingWallCount(x,y);
-				if(x > 0 && x  < width -1 && y > 0 && y < Topography[x] - 5)  //do not process any cells that are out of bounds
+				if(x > 0 && x  < width -1 && y > 0 && y < Topography[x] - GROUND_SURFACE_BUFFER)  //do not process any cells that are out of bounds
 				{
-					if(map[x,y] != 0) //Location IS a wall. Uses != 0 rather than == 1 to allow for multiple values for walls in the future
+					if(map[x,y] != CAVE) //Location IS a wall. Uses != CAVE rather than == WALL to allow for multiple values for walls in the future
 					{
 						if (neighbourWallTiles < DeathLimit)
 						{
-							//map[x].Column[y] = 0;
-							newMap[x,y] = 0;
+							//map[x].Column[y] = CAVE;
+							newMap[x,y] = CAVE;
 						}
 						else
 						{
-							newMap[x,y] = 1;
+							newMap[x,y] = WALL;
 						}
 					}
 					else  //Location IS NOT a wall
 					{
 						if (neighbourWallTiles > BirthLimit)  //Does it have enough neighbors to become a wall?
 						{
-							//map[x].Column[y] = 1;
-							newMap[x,y] = 1;
+							//map[x].Column[y] = WALL;
+							newMap[x,y] = WALL;
 						}
 						else
 						{
-							newMap[x,y] = 0;
+							newMap[x,y] = CAVE;
 						}
 					}
 				}
@@ -195,7 +202,7 @@ public class MapGenerator : MonoBehaviour
 				}
 			}
 		}
-		//map = newMap;
+		//map = newMap;		//does this actually work? and if so is it faster than calling SwapMaps?
 		SwapMaps ();
 	}
 
@@ -210,6 +217,7 @@ public class MapGenerator : MonoBehaviour
 				{
 					if (neighbourX != gridX || neighbourY != gridY) //do not count our own centre tile at X,Y
 					{
+						//NOTE: This method only works if ALL walls are set to 1. If they are any other number it will return meaningless data
 						//wallCount += map[neighbourX].Column[neighbourY];
 						wallCount += map[neighbourX, neighbourY];
 					}
@@ -223,36 +231,6 @@ public class MapGenerator : MonoBehaviour
 
 		return wallCount;
 	}
-
-
-	string GetCellValue(int gridX, int gridY)
-	{
-		string CellValue = "0";
-		if (gridX > 1 && gridX < width - 2) 
-		{
-			if (gridY > 1 && gridY < Topography[gridX] - 5) //this logic might seem weird but we cannot check Topography unless we know X is within bounds first
-			{
-				{
-					if (map [gridX, gridY] != 0) //it's a wall of some kind
-					{ 
-						CellValue = "1";
-					}
-				} 
-			}
-			else
-			{
-				CellValue = "1";  // if we are close to the sides, bottom or the surface then return a wall
-			}
-			//doesn't matter what X is if we are above the ground surface
-		}
-		else 
-		{
-			CellValue = "1"; // if we are close to the sides, bottom or the surface then return a wall
-		}
-		return CellValue;
-	}
-
-
 	void OnDrawGizmos() 
 	{
 		if (map != null) 
@@ -261,11 +239,9 @@ public class MapGenerator : MonoBehaviour
 			{
 				for (int y = 0; y < height; y ++) 
 				{
-					//Gizmos.color = (map[x].Column[y] == 1)?Color.black:Color.white;
 					Gizmos.color = (map[x, y] == 1)?Color.black:Color.white;
-					Vector3 pos = new Vector3(-width/2 + x + .5f, -height/2 + y+.5f,0 );
+					Vector3 pos = new Vector3(-width / 2 + x + .5f, -height / 2 + y + .5f, 0 );
 					Gizmos.DrawCube(pos,Vector3.one);
-					//Gizmos.DrawIcon (pos, "Ground1.jpg", true);
 				}
 			}
 		}
